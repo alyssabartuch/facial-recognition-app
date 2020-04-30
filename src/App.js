@@ -7,7 +7,6 @@ import ImageLinkForm from './components/ImageLinkForm/ImageLinkForm';
 import Rank from './components/Rank/Rank';
 import FaceRecognition from './components/FaceRecognition/FaceRecognition';
 import Particles from 'react-particles-js';
-import Clarifai from 'clarifai';
 import './App.css';
 
 const particlesOptions = {
@@ -61,7 +60,7 @@ const particlesOptions = {
         "enable":true,
         "distance":150,
         "color":"#fff",
-        "opacity":0.8443879765465317,
+        "opacity":0.8,
         "width":1
      },
      "move":{
@@ -100,14 +99,14 @@ const particlesOptions = {
            }
         },
         "bubble":{
-           "distance":400,
+           "distance":100,
            "size":40,
            "duration":2,
            "opacity":8,
            "speed":3
         },
         "repulse":{
-           "distance":200,
+           "distance":70,
            "duration":0.4
         },
         "push":{
@@ -133,21 +132,39 @@ const particlesOptions = {
 //   }
 // }
 
-const app = new Clarifai.App({
-   apiKey: '305c04463cbd4dd8b16216ae7e8c79de'
-  });
+
+
+const initialState = {
+   input: '',
+      imageUrl: '',
+      box: {},
+      route: 'signin',
+      isSignedIn: false,
+      user: {
+         id: '',
+         name: '',
+         email: '',
+         entries: 0,
+         joined: ''
+      }
+}
+
+ //https://i2-prod.mirror.co.uk/incoming/article14334083.ece/ALTERNATES/s615/3_Beautiful-girl-with-a-gentle-smile.jpg
 
 class App extends Component {
    constructor() {
       super()
-      this.state = {
-      input: '',
-      imageUrl: '',
-      box: {},
-      route: 'signin',
-      isSignedIn: false
-      //https://i2-prod.mirror.co.uk/incoming/article14334083.ece/ALTERNATES/s615/3_Beautiful-girl-with-a-gentle-smile.jpg
-      }
+      this.state = initialState
+   }
+
+   loadUser = (data) => {
+         this.setState({ user: {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            entries: data.entries,
+            joined: data.joined
+         }})
    }
 
    calculateFaceLocation = (data) => {
@@ -155,12 +172,12 @@ class App extends Component {
       const image = document.getElementById('input-image');
       const width = Number(image.width);
       const height = Number(image.height);
-      console.log(width,height);
+      // console.log(width,height);
       return {
-      leftCol: clarifaiFace.left_col * width,
-      topRow: clarifaiFace.top_row * height,
-      rightCol: width - (clarifaiFace.right_col * width),
-      bottomRow: height - (clarifaiFace.bottom_row * height)
+         leftCol: clarifaiFace.left_col * width,
+         topRow: clarifaiFace.top_row * height,
+         rightCol: width - (clarifaiFace.right_col * width),
+         bottomRow: height - (clarifaiFace.bottom_row * height)
       }
    }
 
@@ -172,17 +189,40 @@ class App extends Component {
       this.setState({ input: event.target.value })
    }
 
-   onInputSubmit = () => {
+   onPictureSubmit = () => {
       this.setState({ imageUrl: this.state.input })
 
-      app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input)
-      .then(response => this.displayFaceBox(this.calculateFaceLocation(response)))
+      fetch('http://localhost:3000/imageurl', {
+         method: 'post',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+            input: this.state.input
+         })
+      })
+      .then(response => response.json())
+      .then(response => { 
+         if (response) {
+            fetch('http://localhost:3000/image', {
+               method: 'put',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  id: this.state.user.id
+               })
+            })
+            .then(response => response.json()) 
+            .then(count => {
+               this.setState(Object.assign(this.state.user, { entries: count }));
+            })
+            .catch(console.log)
+         }
+         this.displayFaceBox(this.calculateFaceLocation(response))
+      })
       .catch(err => console.log('Bad Request. Please check your link or try a differnt one.',err))  
    }
 
    onRouteChange = (route) => {
       if (route === 'signout') {
-         this.setState({ isSignedIn: false })
+         this.setState(initialState)
       } else if (route === 'home') {
          this.setState({ isSignedIn: true })
       } 
@@ -191,7 +231,7 @@ class App extends Component {
 
    render() {
       const { imageUrl, box, route, isSignedIn } = this.state;
-
+      
       return (
          <div className="App">
             <Particles 
@@ -201,14 +241,14 @@ class App extends Component {
             { route === 'home'
                ? <div>
                   <Logo />
-                  <Rank />
-                  <ImageLinkForm onInputChange={this.onInputchange} onSubmit={this.onInputSubmit}/>
+                  <Rank name={this.state.user.name} entries={this.state.user.entries} />
+                  <ImageLinkForm onInputChange={this.onInputchange} onSubmit={this.onPictureSubmit}/>
                   <FaceRecognition imageUrl={imageUrl} box={box} />
                </div> 
                : (
                   route === 'signin' || route === 'signout'
-                     ? <SignIn onRouteChange={this.onRouteChange} /> 
-                     : <Register onRouteChange={this.onRouteChange} />
+                     ? <SignIn onRouteChange={this.onRouteChange} loadUser={this.loadUser} /> 
+                     : <Register onRouteChange={this.onRouteChange} loadUser={this.loadUser} />
                )
             }
          </div>
