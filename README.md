@@ -1,3 +1,7 @@
+A react frontend application, node.js / express.js backend and PostgreSQL database hosted with Heroku. The backend application uses the ClarifaiAPI Facial Recognition model to fetch information about a particular photo. This information is used to display boxes around each of the faces in the image on the frontend.
+
+Backend repository can be found [here](https://github.com/alyssabartuch/facial-recognition-api).
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
